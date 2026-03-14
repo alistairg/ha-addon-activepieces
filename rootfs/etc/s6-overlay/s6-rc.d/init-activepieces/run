@@ -44,17 +44,27 @@ fi
 # Read user options
 TELEMETRY_ENABLED=$(bashio::config 'telemetry_enabled' 2>/dev/null || echo "false")
 
+# Create persistent subdirectories
+mkdir -p "${data_dir}/cache"
+
+# Symlink the cache directory so pieces persist across restarts
+if [ ! -L /usr/src/app/cache ]; then
+    rm -rf /usr/src/app/cache
+    ln -s "${data_dir}/cache" /usr/src/app/cache
+    bashio::log.info "Linked cache directory to persistent storage"
+fi
+
 # Write environment file for Activepieces service
 cat > "${env_file}" <<EOF
 export AP_DB_TYPE='PGLITE'
 export AP_REDIS_TYPE='MEMORY'
+export AP_CONFIG_PATH='${data_dir}'
 export AP_ENCRYPTION_KEY='${AP_ENCRYPTION_KEY}'
 export AP_JWT_SECRET='${AP_JWT_SECRET}'
 export AP_ENVIRONMENT='prod'
 export AP_EXECUTION_MODE='UNSANDBOXED'
 export AP_TELEMETRY_ENABLED='${TELEMETRY_ENABLED}'
 export AP_FRONTEND_URL='http://localhost:3000'
-export AP_CACHE_PATH='${data_dir}/cache'
 EOF
 
 bashio::log.info "Activepieces initialization complete."

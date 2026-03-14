@@ -1,6 +1,6 @@
 name: Activepieces
 description: Open-source business automation platform - alternative to Zapier
-version: 0.2.8
+version: 0.3.0
 slug: activepieces
 url: https://github.com/activepieces/activepieces
 arch:
