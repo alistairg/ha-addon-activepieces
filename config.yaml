@@ -1,0 +1,29 @@
+name: Activepieces
+description: Open-source business automation platform - alternative to Zapier
+version: 0.2.0
+slug: activepieces
+url: https://github.com/activepieces/activepieces
+arch:
+  - aarch64
+  - amd64
+startup: application
+boot: auto
+init: true
+ingress: true
+ingress_port: 0
+ingress_stream: true
+panel_icon: mdi:puzzle
+panel_admin: true
+homeassistant_api: true
+auth_api: true
+map:
+  - addon_config:rw
+options:
+  telemetry_enabled: false
+schema:
+  telemetry_enabled: bool
+ports:
+  80/tcp: null
+ports_description:
+  80/tcp: Activepieces web interface (not needed with Ingress)
+timeout: 300

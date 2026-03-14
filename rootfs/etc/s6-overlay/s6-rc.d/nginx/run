@@ -1,0 +1,16 @@
+#!/command/with-contenv bashio
+# ==============================================================================
+# Home Assistant Add-on: Activepieces
+# Runs nginx for Ingress support
+# ==============================================================================
+
+declare ingress_port
+
+ingress_port=$(bashio::addon.ingress_port)
+
+bashio::log.info "Starting nginx on ingress port ${ingress_port}..."
+
+# Generate nginx config with correct ingress port
+sed -i "s/%%INGRESS_PORT%%/${ingress_port}/g" /etc/nginx/servers/ingress.conf
+
+exec nginx -g "daemon off;"

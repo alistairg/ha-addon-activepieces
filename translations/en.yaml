@@ -1,0 +1,4 @@
+configuration:
+  telemetry_enabled:
+    name: Telemetry
+    description: Enable anonymous usage telemetry to help improve Activepieces.

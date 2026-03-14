@@ -1,0 +1,15 @@
+#!/command/with-contenv bashio
+# ==============================================================================
+# Home Assistant Add-on: Activepieces
+# Runs the Activepieces application
+# ==============================================================================
+
+# Source environment
+# shellcheck disable=SC1091
+source /var/run/activepieces.env
+
+bashio::log.info "Starting Activepieces..."
+
+cd /usr/src/app || exit 1
+
+exec node --enable-source-maps packages/server/api/dist/src/bootstrap.js
