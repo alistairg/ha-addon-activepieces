@@ -9,8 +9,12 @@ declare ingress_port
 ingress_port=$(bashio::addon.ingress_port)
 
 bashio::log.info "Starting nginx on ingress port ${ingress_port}..."
+bashio::log.info "nginx sub_filter will use X-Ingress-Path header for path rewriting"
 
 # Generate nginx config with correct ingress port
 sed -i "s/%%INGRESS_PORT%%/${ingress_port}/g" /etc/nginx/servers/ingress.conf
+
+# Verify nginx config before starting
+nginx -t 2>&1 || bashio::log.error "nginx config test failed!"
 
 exec nginx -g "daemon off;"

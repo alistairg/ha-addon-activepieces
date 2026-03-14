@@ -11,32 +11,19 @@ Create a Home Assistant addon for [Activepieces](https://www.activepieces.com/) 
 - **s6-overlay**: Uses s6 service management (init-activepieces oneshot → activepieces + nginx longrun services)
 - **Env var passing**: Uses a sourced env file (`/var/run/activepieces.env`) rather than s6 container_environment files, as the latter was unreliable across base image versions
 
-## Current Status (2026-03-13)
-**The addon builds and runs successfully in local Docker testing** (verified with `docker run --platform linux/amd64`), but **still fails to start on actual HAOS** with the error:
-```
-/bin/sh: can't open '/init': Permission denied
-```
+## Current Status (2026-03-14)
+**The addon is working on HAOS with Ingress.** All core functionality verified: s6 init, backend API, frontend UI, ingress proxying.
 
-### What works locally
-- s6-overlay init completes
-- Secrets are generated and persisted
-- Activepieces Node.js server starts, runs DB migrations, and listens on port 3000
-- The ASCII banner prints and the job queue worker starts
-- nginx starts for ingress proxying
+### Ingress architecture
+Activepieces has **no native subpath support** ([GitHub issue #5844](https://github.com/activepieces/activepieces/issues/5844) closed as NOT_PLANNED). The frontend hardcodes `window.location.origin + "/api"` as the API base URL. To make it work behind HA ingress:
 
-### The unresolved HAOS `/init` permission denied issue
-This error occurs even with a **minimal Dockerfile** (just base image + `apk add nginx nodejs npm`, no Activepieces at all), so it is NOT related to our app code. Things we tried:
-1. `init: false` → `init: true` in config.yaml
-2. Removing custom `apparmor.txt` (deleted entirely, using HA default profile)
-3. Adding `chmod +x /init` to Dockerfile
-4. Switching from community base (`ghcr.io/hassio-addons/base:20.0.1`) to official HA base images
-5. Trying both Alpine (`ghcr.io/home-assistant/amd64-base:3.23`) and Debian bases
-6. `docker image prune -a` on the HA box
-7. Full uninstall/reinstall of the addon
+1. **nginx `sub_filter`** rewrites `<base href>`, `src`, and `href` paths in HTML to include the ingress prefix
+2. **Injected JS interceptor** patches `window.fetch` and `XMLHttpRequest.prototype.open` to rewrite both absolute paths (`/api/...`) and full URLs (`https://origin/api/...`) through the ingress path
+3. **`proxy_pass` with trailing slash** (`http://127.0.0.1:3000/;`) strips the `/api/` prefix before forwarding to the backend (which expects routes at `/v1/...`)
+4. **Separate `/socket.io` location** block for WebSocket support
 
-**Hypothesis**: This may be a HAOS-specific issue with how the Supervisor launches containers, possibly related to protection mode, Docker security options, or the specific HAOS version. It works perfectly when run with plain `docker run`. The next step should be investigating how HA Supervisor actually launches addon containers (security opts, capabilities, user namespaces, etc.) and comparing that to our local `docker run`.
-
-### Other issues found and fixed along the way
+### Previously resolved issues
+- **HAOS `/init` permission denied**: `init: true` in config.yaml injected tini as PID 1, conflicting with s6-overlay v3. Fix: `init: false`. Ref: https://developers.home-assistant.io/blog/2022/05/12/s6-overlay-base-images/
 - Activepieces image version: `0.36.5` doesn't exist, current is `0.79.3`
 - `xxd` not available on Debian base → switched to `openssl rand -hex`
 - Secret values with hex characters being interpreted as bash commands → added quoting
@@ -63,13 +50,7 @@ This error occurs even with a **minimal Dockerfile** (just base image + `apk add
 - Supervisor API errors in local testing are expected (no `supervisor` host) — these are handled gracefully with fallbacks
 
 ## Next Steps
-1. **Debug the `/init` permission issue on HAOS** — this is the blocker. Try:
-   - Check HAOS version and Docker version on the box
-   - Look at Supervisor logs (not just addon logs) for more detail
-   - Try `ha addons rebuild local_activepieces` via SSH
-   - Check if other local addons work (to rule out a system-wide issue)
-   - Try adding `privileged: true` temporarily to config.yaml to test if it's a security restriction
-   - Inspect how the Supervisor launches the container: `docker inspect <container_id>` to see SecurityOpt, CapAdd, etc.
-2. Once running on HAOS, verify Ingress works end-to-end
-3. Add back a refined AppArmor profile
-4. Test webhook support (requires exposing port 80 externally)
+1. Fix missing font files (inter-v20-latin-regular woff2) — may need to copy from a different path in the Activepieces image
+2. Add back a refined AppArmor profile
+3. Test webhook support (requires exposing port 80 externally)
+4. Clean up debug logging in nginx once stable
